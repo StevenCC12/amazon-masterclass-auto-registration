@@ -1,0 +1,81 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, EmailStr
+import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
+
+WEBINARJAM_API_KEY = os.getenv("WEBINARJAM_API_KEY")
+WEBINAR_ID = os.getenv("WEBINARJAM_WEBINAR_ID")
+WEBINAR_SCHEDULE_ID = os.getenv("WEBINARJAM_WEBINAR_SCHEDULE_ID")
+register_url = "https://api.webinarjam.com/webinarjam/register"
+
+# Check if all environment variables are set
+if not all([WEBINARJAM_API_KEY, WEBINAR_ID, WEBINAR_SCHEDULE_ID]):
+    raise RuntimeError("One or more required environment variables are missing. Please ensure WEBINARJAM_API_KEY, WEBINARJAM_WEBINAR_ID, and WEBINARJAM_WEBINAR_SCHEDULE_ID are set.")
+
+# FastAPI app
+app = FastAPI()
+
+# Pydantic model for GHL contact data
+class Contact(BaseModel):
+    name: str
+    email: EmailStr
+    phone: str
+
+@app.post("/register")
+async def register_contact(contact: Contact):
+    """
+    Register a contact for the WebinarJam webinar.
+    """
+    # Split the name into first and last name
+    name_parts = contact.name.split()
+    first_name = name_parts[0]
+    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+
+    # Create payload for WebinarJam API
+    payload = {
+        "api_key": WEBINARJAM_API_KEY,
+        "webinar_id": WEBINAR_ID,
+        "schedule": WEBINAR_SCHEDULE_ID,
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": contact.email,
+        "phone": contact.phone
+    }
+
+    try:
+        # Send POST request to WebinarJam API
+        response = requests.post(register_url, data=payload)
+
+        # Check if the HTTP status code indicates success
+        if response.status_code == 200:
+            response_json = response.json()
+            # Check if the API's custom status field indicates success
+            if response_json.get("status") == "success":
+                user = response_json.get("user", {})
+                return {
+                    "message": "Contact successfully registered for the webinar.",
+                    "user_id": user.get("user_id"),
+                    "live_room_url": user.get("live_room_url"),
+                    "replay_room_url": user.get("replay_room_url"),
+                    "thank_you_url": user.get("thank_you_url")
+                }
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to register contact. WebinarJam API responded with: {response_json.get('error', 'Unknown error')}"
+                )
+        else:
+            # Handle unexpected HTTP status codes
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Failed to register contact. WebinarJam API responded with: {response.text}"
+            )
+    except requests.exceptions.RequestException as e:
+        # Handle request errors
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while communicating with the WebinarJam API: {str(e)}"
+        )
