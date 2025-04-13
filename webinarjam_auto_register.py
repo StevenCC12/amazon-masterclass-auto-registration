@@ -2,9 +2,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr
 import os
 import requests
-from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables from .env file
+# Load environment variables from .env only in local development
+if os.getenv("RENDER") is None:  # Render sets this variable automatically
+    from dotenv import load_dotenv
+    load_dotenv()
 
 WEBINARJAM_API_KEY = os.getenv("WEBINARJAM_API_KEY")
 WEBINAR_ID = os.getenv("WEBINARJAM_WEBINAR_ID")
