@@ -38,14 +38,13 @@ class Contact(BaseModel):
     name: str
     email: EmailStr
     phone: str
-    ip: str  # New field for IP address
 
 @app.post("/register")
 async def register_contact(contact: Contact):
     """
     Register a contact for the WebinarJam webinar.
     """
-    logging.info(f"Received registration request for: {contact.name}, {contact.email}, IP: {contact.ip}")
+    logging.info(f"Received registration request for: {contact.name}, {contact.email}")
 
     # Split the name into first and last name
     name_parts = contact.name.split()
@@ -63,8 +62,7 @@ async def register_contact(contact: Contact):
         "first_name": first_name,
         "last_name": last_name,
         "email": contact.email,
-        "phone": phone,
-        "ip_address": contact.ip  # Include the IP address in the payload
+        "phone": phone
     }
 
     headers = {
