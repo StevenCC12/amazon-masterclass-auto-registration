@@ -1,8 +1,19 @@
+import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr
 import os
 import requests
 import time
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,  # Set the logging level to INFO
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Log format
+    handlers=[
+        logging.FileHandler("webinarjam_auto_register.log"),  # Log to a file
+        logging.StreamHandler()  # Log to the console
+    ]
+)
 
 # Load environment variables from .env only in local development
 if os.getenv("RENDER") is None:  # Render sets this variable automatically
@@ -16,7 +27,8 @@ register_url = "https://api.webinarjam.com/webinarjam/register"
 
 # Check if all environment variables are set
 if not all([WEBINARJAM_API_KEY, WEBINAR_ID, WEBINAR_SCHEDULE_ID]):
-    raise RuntimeError("One or more required environment variables are missing. Please ensure WEBINARJAM_API_KEY, WEBINARJAM_WEBINAR_ID, and WEBINARJAM_WEBINAR_SCHEDULE_ID are set.")
+    logging.error("One or more required environment variables are missing.")
+    raise RuntimeError("Please ensure WEBINARJAM_API_KEY, WEBINARJAM_WEBINAR_ID, and WEBINARJAM_WEBINAR_SCHEDULE_ID are set.")
 
 # FastAPI app
 app = FastAPI()
@@ -32,6 +44,8 @@ async def register_contact(contact: Contact):
     """
     Register a contact for the WebinarJam webinar.
     """
+    logging.info(f"Received registration request for: {contact.name}, {contact.email}")
+
     # Split the name into first and last name
     name_parts = contact.name.split()
     first_name = name_parts[0]
@@ -56,50 +70,70 @@ async def register_contact(contact: Contact):
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    try:
-        # Send POST request to WebinarJam API
-        response = requests.post(register_url, data=payload, headers=headers)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            logging.info(f"Attempt {attempt + 1}: Sending request to WebinarJam API.")
+            response = requests.post(register_url, data=payload, headers=headers)
 
-        # Add a 2-second delay to handle rate-limiting
-        time.sleep(2)
+            # Add a 2-second delay to handle rate-limiting
+            time.sleep(2)
 
-        # Log the raw response for debugging
-        print(f"Raw response text: {response.text}")
+            # Log the raw response for debugging
+            logging.info(f"Attempt {attempt + 1}: Response status code: {response.status_code}")
+            logging.debug(f"Attempt {attempt + 1}: Response text: {response.text}")
 
-        # Check if the HTTP status code indicates success
-        if response.status_code == 200:
-            try:
-                response_json = response.json()
-            except ValueError:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"WebinarJam API returned an invalid response: {response.text}"
-                )
+            # Handle 502 Bad Gateway errors with retries
+            if response.status_code == 502:
+                logging.warning(f"Attempt {attempt + 1}: Received 502 Bad Gateway. Retrying...")
+                time.sleep(2 ** attempt)  # Exponential backoff
+                continue
 
-            # Check if the API's custom status field indicates success
-            if response_json.get("status") == "success":
-                user = response_json.get("user", {})
-                return {
-                    "message": "Contact successfully registered for the webinar.",
-                    "user_id": user.get("user_id"),
-                    "live_room_url": user.get("live_room_url"),
-                    "replay_room_url": user.get("replay_room_url"),
-                    "thank_you_url": user.get("thank_you_url")
-                }
+            # Check if the HTTP status code indicates success
+            if response.status_code == 200:
+                try:
+                    response_json = response.json()
+                except ValueError:
+                    logging.error("WebinarJam API returned an invalid response.")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"WebinarJam API returned an invalid response: {response.text}"
+                    )
+
+                # Check if the API's custom status field indicates success
+                if response_json.get("status") == "success":
+                    user = response_json.get("user", {})
+                    logging.info(f"Successfully registered contact: {contact.email}")
+                    return {
+                        "message": "Contact successfully registered for the webinar.",
+                        "user_id": user.get("user_id"),
+                        "live_room_url": user.get("live_room_url"),
+                        "replay_room_url": user.get("replay_room_url"),
+                        "thank_you_url": user.get("thank_you_url")
+                    }
+                else:
+                    logging.error(f"Failed to register contact. WebinarJam API responded with: {response_json.get('error', 'Unknown error')}")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to register contact. WebinarJam API responded with: {response_json.get('error', 'Unknown error')}"
+                    )
             else:
+                # Handle unexpected HTTP status codes
+                logging.error(f"Unexpected HTTP status code: {response.status_code}. Response: {response.text}")
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Failed to register contact. WebinarJam API responded with: {response_json.get('error', 'Unknown error')}"
+                    status_code=response.status_code,
+                    detail=f"Failed to register contact. WebinarJam API responded with: {response.text}"
                 )
-        else:
-            # Handle unexpected HTTP status codes
+        except requests.exceptions.RequestException as e:
+            logging.error(f"An error occurred while communicating with the WebinarJam API: {str(e)}")
             raise HTTPException(
-                status_code=response.status_code,
-                detail=f"Failed to register contact. WebinarJam API responded with: {response.text}"
+                status_code=500,
+                detail=f"An error occurred while communicating with the WebinarJam API: {str(e)}"
             )
-    except requests.exceptions.RequestException as e:
-        # Handle request errors
+    else:
+        # If all retries fail, raise an exception
+        logging.error("WebinarJam API is currently unavailable after multiple attempts.")
         raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while communicating with the WebinarJam API: {str(e)}"
+            status_code=502,
+            detail="WebinarJam API is currently unavailable after multiple attempts. Please try again later."
         )
