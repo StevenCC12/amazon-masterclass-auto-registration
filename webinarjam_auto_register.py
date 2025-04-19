@@ -60,9 +60,19 @@ async def register_contact(contact: Contact):
         # Add a 2-second delay to handle rate-limiting
         time.sleep(2)
 
+        # Log the raw response for debugging
+        print(f"Raw response text: {response.text}")
+
         # Check if the HTTP status code indicates success
         if response.status_code == 200:
-            response_json = response.json()
+            try:
+                response_json = response.json()
+            except ValueError:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"WebinarJam API returned an invalid response: {response.text}"
+                )
+
             # Check if the API's custom status field indicates success
             if response_json.get("status") == "success":
                 user = response_json.get("user", {})
