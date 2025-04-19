@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr
 import os
 import requests
+import time
 
 # Load environment variables from .env only in local development
 if os.getenv("RENDER") is None:  # Render sets this variable automatically
@@ -47,9 +48,17 @@ async def register_contact(contact: Contact):
         "phone": contact.phone
     }
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
     try:
         # Send POST request to WebinarJam API
-        response = requests.post(register_url, data=payload)
+        response = requests.post(register_url, data=payload, headers=headers)
+
+        # Add a 2-second delay to handle rate-limiting
+        time.sleep(2)
 
         # Check if the HTTP status code indicates success
         if response.status_code == 200:
