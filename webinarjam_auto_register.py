@@ -37,6 +37,9 @@ async def register_contact(contact: Contact):
     first_name = name_parts[0]
     last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
 
+    # Ensure the phone number contains only digits
+    phone = "".join(filter(str.isdigit, contact.phone)) if contact.phone else None
+
     # Create payload for WebinarJam API
     payload = {
         "api_key": WEBINARJAM_API_KEY,
@@ -45,7 +48,7 @@ async def register_contact(contact: Contact):
         "first_name": first_name,
         "last_name": last_name,
         "email": contact.email,
-        "phone": contact.phone
+        "phone": phone
     }
 
     headers = {
