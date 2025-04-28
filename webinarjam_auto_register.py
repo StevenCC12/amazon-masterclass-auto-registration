@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr
 import os
 import requests
 import time
+import json  # Import the json module for safe encoding
 
 # Configure logging
 logging.basicConfig(
@@ -75,7 +76,9 @@ async def register_contact(contact: Contact):
     for attempt in range(max_retries):
         try:
             logging.info(f"Attempt {attempt + 1}: Sending request to WebinarJam API.")
-            response = requests.post(register_url, data=payload, headers=headers)
+
+            # Use json.dumps to safely encode the payload
+            response = requests.post(register_url, data=json.dumps(payload), headers=headers)
 
             # Add a 2-second delay to handle rate-limiting
             time.sleep(2)
