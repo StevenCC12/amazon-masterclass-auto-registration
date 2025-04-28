@@ -70,7 +70,6 @@ async def register_contact(contact: Contact):
     }
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Content-Type": "application/x-www-form-urlencoded"
     }
 
@@ -79,8 +78,8 @@ async def register_contact(contact: Contact):
         try:
             logging.info(f"Attempt {attempt + 1}: Sending request to WebinarJam API.")
 
-            # Use json.dumps to safely encode the payload
-            response = requests.post(register_url, data=json.dumps(payload), headers=headers)
+            # Send the payload as form data
+            response = requests.post(register_url, data=payload, headers=headers)
 
             # Add a 2-second delay to handle rate-limiting
             time.sleep(2)
