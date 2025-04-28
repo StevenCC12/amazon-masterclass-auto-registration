@@ -27,6 +27,8 @@ WEBINAR_SCHEDULE_ID = os.getenv("WEBINARJAM_WEBINAR_SCHEDULE_ID")
 register_url = "https://api.webinarjam.com/webinarjam/register"
 ghl_webhook_url = "https://services.leadconnectorhq.com/hooks/kFKnF888dp7eKChjLxb9/webhook-trigger/5f369931-bb5a-4b15-b836-e675c867d211"
 
+logging.info(f"Loaded API Key: {WEBINARJAM_API_KEY}")
+
 # Check if all environment variables are set
 if not all([WEBINARJAM_API_KEY, WEBINAR_ID, WEBINAR_SCHEDULE_ID]):
     logging.error("One or more required environment variables are missing.")
