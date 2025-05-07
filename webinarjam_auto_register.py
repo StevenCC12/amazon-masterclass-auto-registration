@@ -25,7 +25,6 @@ WEBINARJAM_API_KEY = os.getenv("WEBINARJAM_API_KEY")
 WEBINAR_ID = os.getenv("WEBINARJAM_WEBINAR_ID")
 WEBINAR_SCHEDULE_ID = os.getenv("WEBINARJAM_WEBINAR_SCHEDULE_ID")
 register_url = "https://api.webinarjam.com/webinarjam/register"
-ghl_webhook_url = "https://services.leadconnectorhq.com/hooks/kFKnF888dp7eKChjLxb9/webhook-trigger/5f369931-bb5a-4b15-b836-e675c867d211"
 
 logging.info(f"Loaded API Key: {WEBINARJAM_API_KEY}")
 
@@ -37,7 +36,7 @@ if not all([WEBINARJAM_API_KEY, WEBINAR_ID, WEBINAR_SCHEDULE_ID]):
 # FastAPI app
 app = FastAPI()
 
-# Pydantic model for GHL contact data
+# Pydantic model for contact data
 class Contact(BaseModel):
     name: str
     email: EmailStr
@@ -46,7 +45,7 @@ class Contact(BaseModel):
 @app.post("/register")
 async def register_contact(contact: Contact):
     """
-    Register a contact for the WebinarJam webinar and send data to GHL Webhook.
+    Register a contact for the WebinarJam webinar.
     """
     logging.info(f"Received registration request for: {contact.name}, {contact.email}")
 
@@ -110,23 +109,8 @@ async def register_contact(contact: Contact):
                     user = response_json.get("user", {})
                     logging.info(f"Successfully registered contact: {contact.email}")
 
-                    # Send data to GHL Webhook
-                    ghl_payload = {
-                        "email": contact.email,
-                        "user_id": user.get("user_id"),
-                        "live_room_url": user.get("live_room_url"),
-                        "replay_room_url": user.get("replay_room_url"),
-                        "thank_you_url": user.get("thank_you_url")
-                    }
-                    ghl_response = requests.post(ghl_webhook_url, json=ghl_payload)
-
-                    if ghl_response.status_code == 200:
-                        logging.info(f"Successfully sent data to GHL Webhook for user_id: {user.get('user_id')}")
-                    else:
-                        logging.error(f"Failed to send data to GHL Webhook. Status code: {ghl_response.status_code}. Response: {ghl_response.text}")
-
                     return {
-                        "message": "Contact successfully registered for the webinar and data sent to GHL Webhook.",
+                        "message": "Contact successfully registered for the webinar.",
                         "user_id": user.get("user_id"),
                         "live_room_url": user.get("live_room_url"),
                         "replay_room_url": user.get("replay_room_url"),
