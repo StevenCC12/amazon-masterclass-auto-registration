@@ -5,6 +5,7 @@ import os
 import requests
 import time
 import json  # Import the json module for safe encoding
+import urllib.parse  # Import for URL encoding
 
 # Configure logging
 logging.basicConfig(
@@ -68,6 +69,9 @@ async def register_contact(contact: Contact):
         "phone": phone
     }
 
+    # URL-encode the payload
+    encoded_payload = urllib.parse.urlencode(payload)
+
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
@@ -77,8 +81,8 @@ async def register_contact(contact: Contact):
         try:
             logging.info(f"Attempt {attempt + 1}: Sending request to WebinarJam API.")
 
-            # Send the payload as form data
-            response = requests.post(register_url, data=payload, headers=headers)
+            # Send the URL-encoded payload
+            response = requests.post(register_url, data=encoded_payload, headers=headers)
 
             # Add a 2-second delay to handle rate-limiting
             time.sleep(2)
